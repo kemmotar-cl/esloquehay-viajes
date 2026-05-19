@@ -1,15 +1,18 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Settings2 } from 'lucide-react';
+import { Settings2, Clock } from 'lucide-react';
 import IngredientInput from './components/IngredientInput';
 import FloatingIngredients from './components/FloatingIngredients';
 import RecipeCard from './components/RecipeCard';
 import PreferencesPanel from './components/PreferencesPanel';
 import AdBanner from './components/AdBanner';
 import AffiliateLinks from './components/AffiliateLinks';
+import HistoryPanel from './components/HistoryPanel';
+import ShareButton from './components/ShareButton';
 import ScrollIndicator from './components/ScrollIndicator';
 import Logo from './components/Logo';
 import { useCountryDetection } from './hooks/useCountry';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { useHistory } from './hooks/useHistory';
 import { getRandomTagline } from './data/phrases';
 import { generateItinerary, checkHealth } from './services/api';
 import type { Recipe } from './types/recipe';
@@ -238,6 +241,8 @@ function App() {
   const [itinerary, setItinerary] = useState<Recipe | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const { addToHistory } = useHistory();
   const [backendReady, setBackendReady] = useState<boolean | null>(null);
   const [preferences, setPreferences] = useLocalStorage<UserPreferences>(
     'esloquehay-prefs',
@@ -292,16 +297,19 @@ function App() {
             companions: preferences.servings,
           });
           setItinerary(result);
+          addToHistory(result);
         } catch {
           setItinerary(mockItinerary);
+          addToHistory(mockItinerary);
         }
       } else {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         setItinerary(mockItinerary);
+        addToHistory(mockItinerary);
       }
       setIsLoading(false);
     },
-    [backendReady, elements, country, preferences]
+    [backendReady, elements, country, preferences, addToHistory]
   );
 
   const handleGenerateVariation = useCallback(
@@ -340,15 +348,26 @@ function App() {
             </span>
           )}
         </div>
-        <button
-          onClick={() => {
-            setShowPrefs(true);
-          }}
-          className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-white rounded-xl shadow-sm text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <Settings2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span className="hidden sm:inline">Preferencias</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setShowHistory(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white rounded-xl shadow-sm text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Historial</span>
+          </button>
+          <button
+            onClick={() => {
+              setShowPrefs(true);
+            }}
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-white rounded-xl shadow-sm text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Settings2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Preferencias</span>
+          </button>
+        </div>
       </div>
 
       {/* Floating Elements Cloud */}
@@ -375,12 +394,40 @@ function App() {
       {/* Ad Banner — debajo del botón generar */}
       <AdBanner variant="horizontal" />
 
+      {showHistory && (
+        <HistoryPanel
+          history={[]}
+          onSelect={(r) => {
+            setItinerary(r);
+            setShowHistory(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onClear={() => undefined}
+          onRemove={() => undefined}
+          onClose={() => {
+            setShowHistory(false);
+          }}
+        />
+      )}
+
       {/* Scroll indicator cuando el itinerario está listo */}
       <ScrollIndicator visible={!!itinerary && !isLoading} />
 
       {/* Itinerary Result */}
       {itinerary && !isLoading && (
         <div className="mt-6 sm:mt-8">
+          <div className="max-w-2xl mx-auto flex items-center justify-between mb-3">
+            <ShareButton recipe={itinerary} />
+            <button
+              onClick={() => {
+                setShowHistory(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white rounded-xl shadow-sm text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              Historial
+            </button>
+          </div>
           <RecipeCard recipe={itinerary} onGenerateVariation={handleGenerateVariation} />
           <AffiliateLinks recipeCategory={itinerary.title.split(' ')[0]} />
           <AdBanner variant="horizontal" />
